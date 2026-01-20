@@ -1,0 +1,144 @@
+version: "3.8"
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.8.3
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+
+    # -----------------------------
+    # TIMEZONE FIX (VERY IMPORTANT)
+    # -----------------------------
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Kolkata
+    TZ: Asia/Kolkata
+
+    # -----------------------------
+    # Airflow metadata DB (Postgres)
+    # -----------------------------
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+
+    # -----------------------------
+    # Security
+    # -----------------------------
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+    AIRFLOW_CONN_MYSQL_AMAZON: mysql://airflow_user:airflow_pass@mysql:3306/amazon_db
+
+    # -----------------------------
+    # Python dependencies
+    # -----------------------------
+    _PIP_ADDITIONAL_REQUIREMENTS: mysql-connector-python pandas rapidfuzz
+
+    # -----------------------------
+    # Linux user
+    # -----------------------------
+    AIRFLOW_UID: "50000"
+
+    # -----------------------------
+    # EMAIL CONFIGURATION (OUTLOOK SMTP)
+    # -----------------------------
+    AIRFLOW__EMAIL__EMAIL_BACKEND: airflow.utils.email.send_email_smtp
+    AIRFLOW__SMTP__SMTP_HOST: smtp.office365.com
+    AIRFLOW__SMTP__SMTP_PORT: 587
+    AIRFLOW__SMTP__SMTP_STARTTLS: "True"
+    AIRFLOW__SMTP__SMTP_SSL: "False"
+    AIRFLOW__SMTP__SMTP_USER: 22981a44e6@raghuenggcollege.in
+    AIRFLOW__SMTP__SMTP_PASSWORD: alsv vske hrwq snea
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: 22981a44e6@raghueggcollege.in
+
+  volumes:
+    - ../dags:/opt/airflow/dags
+    - ../logs:/opt/airflow/logs
+    - ../plugins:/opt/airflow/plugins
+    - ../scripts:/opt/airflow/scripts
+    - ../data_models:/opt/airflow/data_models
+    - ../data:/opt/airflow/data
+
+services:
+
+  init_dirs:
+    image: alpine:3.18
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        mkdir -p /workspace/dags \
+                 /workspace/plugins \
+                 /workspace/logs \
+                 /workspace/scripts \
+                 /workspace/data_models \
+                 /workspace/data/raw \
+                 /workspace/data/staging \
+                 /workspace/data/processed
+        chown -R 50000:50000 /workspace
+        echo "Folders created"
+    volumes:
+      - ../:/workspace:rw
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: amazon_db
+      MYSQL_USER: airflow_user
+      MYSQL_PASSWORD: airflow_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./datamodels:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  webserver:
+    <<: *airflow-common
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    command: webserver
+
+  scheduler:
+    <<: *airflow-common
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    command: scheduler
+
+volumes:
+  postgres-db:
+  redis-data:
+  mysql-data:

@@ -1,0 +1,1 @@
+order_number,line_item,order_date,delivery_date,customerkey,storekey,productkey,quantity,currency_code,anomaly_flag
