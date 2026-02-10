@@ -1,41 +1,40 @@
 version: "3.8"
 
+# ------------------------------------------------
+# Common Airflow Config
+# ------------------------------------------------
 x-airflow-common: &airflow-common
   image: apache/airflow:2.8.3
+
   environment:
+
+    # Executor
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
 
-    # -----------------------------
-    # TIMEZONE FIX (VERY IMPORTANT)
-    # -----------------------------
+    # ENABLE API AUTH (FIX FOR 401)
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+
+    # Timezone
     AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Kolkata
     TZ: Asia/Kolkata
 
-    # -----------------------------
-    # Airflow metadata DB (Postgres)
-    # -----------------------------
+    # Database
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
 
-    # -----------------------------
     # Security
-    # -----------------------------
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+
+    # MySQL Connection
     AIRFLOW_CONN_MYSQL_AMAZON: mysql://airflow_user:airflow_pass@mysql:3306/amazon_db
 
-    # -----------------------------
-    # Python dependencies
-    # -----------------------------
+    # Extra Python Packages
     _PIP_ADDITIONAL_REQUIREMENTS: mysql-connector-python pandas rapidfuzz
 
-    # -----------------------------
-    # Linux user
-    # -----------------------------
+    # Linux User
     AIRFLOW_UID: "50000"
 
-    # -----------------------------
-    # EMAIL CONFIGURATION (OUTLOOK SMTP)
-    # -----------------------------
+    # Email Config
     AIRFLOW__EMAIL__EMAIL_BACKEND: airflow.utils.email.send_email_smtp
     AIRFLOW__SMTP__SMTP_HOST: smtp.office365.com
     AIRFLOW__SMTP__SMTP_PORT: 587
@@ -53,8 +52,13 @@ x-airflow-common: &airflow-common
     - ../data_models:/opt/airflow/data_models
     - ../data:/opt/airflow/data
 
+
+# ------------------------------------------------
+# Services
+# ------------------------------------------------
 services:
 
+  # Init directories
   init_dirs:
     image: alpine:3.18
     entrypoint:
@@ -72,50 +76,68 @@ services:
                  /workspace/data/processed
         chown -R 50000:50000 /workspace
         echo "Folders created"
+
     volumes:
       - ../:/workspace:rw
 
+
+  # Postgres DB
   postgres:
     image: postgres:15
+
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+
     volumes:
       - postgres-db:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U airflow"]
       interval: 10s
       retries: 5
 
+
+  # Redis
   redis:
     image: redis:7
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       retries: 5
 
+
+  # MySQL
   mysql:
     image: mysql:8.0
     container_name: mysql
     restart: always
+
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: amazon_db
       MYSQL_USER: airflow_user
       MYSQL_PASSWORD: airflow_pass
+
     ports:
       - "3307:3306"
+
     volumes:
       - mysql-data:/var/lib/mysql
       - ./datamodels:/docker-entrypoint-initdb.d
+
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       retries: 5
 
+
+  # Airflow Webserver
   webserver:
     <<: *airflow-common
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -123,12 +145,17 @@ services:
         condition: service_healthy
       mysql:
         condition: service_healthy
+
     ports:
       - "8081:8080"
+
     command: webserver
 
+
+  # Airflow Scheduler
   scheduler:
     <<: *airflow-common
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,8 +163,13 @@ services:
         condition: service_healthy
       mysql:
         condition: service_healthy
+
     command: scheduler
 
+
+# ------------------------------------------------
+# Volumes
+# ------------------------------------------------
 volumes:
   postgres-db:
   redis-data:
