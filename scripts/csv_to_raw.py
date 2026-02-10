@@ -3,7 +3,7 @@ import mysql.connector
 
 def csv_to_raw():
     # CSV location inside Airflow container
-    csv_path = "/opt/airflow/data/raw/Amazom.csv"
+    csv_path = "/opt/airflow/data/raw/Amazon.csv"
 
     # Load CSV
     df = pd.read_csv(csv_path)

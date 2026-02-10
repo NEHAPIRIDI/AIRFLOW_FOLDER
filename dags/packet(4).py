@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 import os
 
-INPUT_FILE = "/opt/airflow/data/raw/Amazom.csv"
+INPUT_FILE = "/opt/airflow/data/raw/Amazon.csv"
 STAGING_OUTPUT = "/opt/airflow/data/raw/st_op.csv"
 CURATED_OUTPUT = "/opt/airflow/data/raw/cr_op.csv"
 
