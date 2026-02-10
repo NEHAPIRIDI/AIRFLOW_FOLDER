@@ -236,3 +236,8 @@ GitHub: [https://github.com/NEHAPIRIDI](https://github.com/NEHAPIRIDI)
 * Interview-ready documentation
 
 
+## 📄 License
+
+This project is licensed under the MIT License.
+
+
