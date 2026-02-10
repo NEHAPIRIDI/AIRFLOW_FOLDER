@@ -37,13 +37,11 @@ def dag_runs(dag_id):
     return jsonify({"success": True, "data": data})
 
 
-@app.route("/api/dags/<dag_id>/tasks")
+
+@app.route("/api/dags/<dag_id>/status")
 def dag_tasks(dag_id):
     data = airflow_get(f"/dags/{dag_id}/tasks")
     return jsonify({"success": True, "data": data})
-
-
-@app.route("/api/dags/<dag_id>/status")
 def dag_status(dag_id):
     data = airflow_get(f"/dags/{dag_id}/dagRuns?limit=1")
 
